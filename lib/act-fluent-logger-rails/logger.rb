@@ -99,11 +99,16 @@ module ActFluentLoggerRails
       @fluent_logger = ::Fluent::Logger::FluentLogger.new(nil, logger_opts)
       @severity = 0
       @log_tags = log_tags
+      @dynamic_tags = {}
       after_initialize if respond_to?(:after_initialize) && Rails::VERSION::MAJOR < 6
     end
 
     def auto_flushing=(flush)
       @flush_immediately = flush
+    end
+
+    def dynamic_tags(tags)
+      @dynamic_tags = tags
     end
 
     def add(severity, message = nil, progname = nil, &block)
@@ -177,13 +182,24 @@ module ActFluentLoggerRails
     end
 
     def collect_tags
-      return {} unless @tags_thread_key && Thread.current.key?(@tags_thread_key)
+      dynamic_tags = collect_dynamic_tags
+      return dynamic_tags unless @tags_thread_key && Thread.current.key?(@tags_thread_key)
 
       tags = {}
       @log_tags.keys.zip(Thread.current[@tags_thread_key]).each do |k, v|
         tags[k] = v
       end
-      tags
+      tags.merge!(dynamic_tags)
+    end
+
+    def collect_dynamic_tags
+      @dynamic_tags.transform_values do |v|
+        if v.respond_to?(:call)
+          v.call
+        else
+          v
+        end
+      end.to_h
     end
 
     def logger_messages

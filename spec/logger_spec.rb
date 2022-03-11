@@ -89,6 +89,17 @@ EOF
                                         foo: 'foo_value'
                                       } ]])
       end
+
+      it 'dynamic_logs' do
+        logger.dynamic_tags({key: ->(){"value"}})
+        logger.info("log message")
+        logger.flush
+        expect(@my_logger.log).to eq([['foo', {
+          messages: 'log message',
+          severity: 'INFO',
+          key: 'value'
+        } ]])
+      end
     end
 
     it 'is thread safe' do
